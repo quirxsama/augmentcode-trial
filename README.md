@@ -1,0 +1,2 @@
+# augmentcode-trial
+reset vscode
