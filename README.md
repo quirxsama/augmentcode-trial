@@ -102,3 +102,106 @@ If you encounter any issues:
 ## Note
 
 This tool is designed for Windows systems only. For other operating systems, please refer to the main README.md file. 
+
+# Augment Free Trial Reset Tool for Linux
+
+This script helps you reset the Augment free trial on Linux by cleaning telemetry IDs used by Visual Studio Code (VS Code). It supports both native and Flatpak installations.
+
+## Prerequisites
+
+Before using the script, ensure the following dependencies are installed:
+
+1. **jq** – Command-line JSON processor
+
+   ```bash
+   sudo apt install jq  # Debian/Ubuntu
+   ```
+
+2. **sqlite3** – If you're also using the related database cleaner script
+
+   ```bash
+   sudo apt install sqlite3
+   ```
+
+## Installation
+
+1. Download the script:
+
+   * `vscode_linux_reset.sh`
+
+2. Make the script executable:
+
+   ```bash
+   chmod +x vscode_linux_reset.sh
+   ```
+
+## Usage
+
+### Step 1: Close VS Code
+
+Ensure that Visual Studio Code is completely closed before running the script.
+
+### Step 2: Run the Script
+
+Execute the script in your terminal:
+
+```bash
+./vscode_linux_reset.sh
+```
+
+### What the Script Does
+
+1. **Backup:**
+
+   * Backs up the `storage.json` file (location varies depending on installation type)
+
+2. **Generate New IDs:**
+
+   * Randomly generates a new `machineId` and `devDeviceId`
+
+3. **Update storage.json:**
+
+   * Modifies the IDs in-place using `jq`
+
+## Supported VS Code Installations
+
+* Native installation: `~/.config/Code/`
+* Flatpak installation: `~/.var/app/com.visualstudio.code/`
+
+The script checks both paths automatically.
+
+## Troubleshooting
+
+1. **jq not found**
+
+   * Install it: `sudo apt install jq`
+
+2. **storage.json not found**
+
+   * Make sure you’ve launched VS Code at least once
+
+3. **Permission denied**
+
+   * Make the script executable: `chmod +x vscode_linux_reset.sh`
+
+## Backup Files
+
+A backup of `storage.json` is created at the same location as:
+
+```
+storage.json.backup
+```
+
+## Safety Features
+
+* Automatic backups
+* Color-coded logging
+* Minimal dependencies
+
+## Note
+
+This script is for Linux systems only. For Windows users, please refer to the original PowerShell scripts.
+
+---
+
+Pull requests and contributions are welcome to expand Linux support or other platform compatibility!
