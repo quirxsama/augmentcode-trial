@@ -1,44 +1,57 @@
 #!/bin/bash
 
-# Renkli loglama
+# Colored logging
 log_info() { echo -e "\033[1;34m[INFO]\033[0m $1"; }
 log_success() { echo -e "\033[1;32m[SUCCESS]\033[0m $1"; }
 log_warning() { echo -e "\033[1;33m[WARNING]\033[0m $1"; }
 log_error() { echo -e "\033[1;31m[ERROR]\033[0m $1"; }
 
-# sqlite3 kontrolü
+# Check for sqlite3
 check_sqlite3() {
     if ! command -v sqlite3 &> /dev/null; then
-        log_error "sqlite3 bulunamadı. Lütfen SQLite3'ü kur."
+        log_error "sqlite3 not found. Please install SQLite3."
         exit 1
     fi
 }
 
-# VS Code veri dizinleri
+# VS Code data directories (local and flatpak)
 get_vscode_locations() {
     local locations=()
-    local config_dir="$HOME/.config/Code"
+    local config_dir_local="$HOME/.config/Code"
+    local config_dir_flatpak="$HOME/.var/app/com.visualstudio.code/config/Code"
 
-    [[ -d "$config_dir/User" ]] && locations+=("$config_dir/User")
-    [[ -d "$config_dir/workspaceStorage" ]] && locations+=("$config_dir/workspaceStorage")
-    [[ -d "$config_dir/User/globalStorage" ]] && locations+=("$config_dir/User/globalStorage")
+    # Local install
+    if [[ -d "$config_dir_local" ]]; then
+        log_info "Local VS Code installation detected."
+        [[ -d "$config_dir_local/User" ]] && locations+=("$config_dir_local/User")
+        [[ -d "$config_dir_local/workspaceStorage" ]] && locations+=("$config_dir_local/workspaceStorage")
+        [[ -d "$config_dir_local/User/globalStorage" ]] && locations+=("$config_dir_local/User/globalStorage")
+    fi
+
+    # Flatpak install
+    if [[ -d "$config_dir_flatpak" ]]; then
+        log_info "Flatpak VS Code installation detected."
+        [[ -d "$config_dir_flatpak/User" ]] && locations+=("$config_dir_flatpak/User")
+        [[ -d "$config_dir_flatpak/workspaceStorage" ]] && locations+=("$config_dir_flatpak/workspaceStorage")
+        [[ -d "$config_dir_flatpak/User/globalStorage" ]] && locations+=("$config_dir_flatpak/User/globalStorage")
+    fi
 
     echo "${locations[@]}"
 }
 
-# Yedek al
+# Backup file
 backup_file() {
     local filepath="$1"
     local backup="$filepath.backup"
     if [[ ! -f "$backup" ]]; then
         cp "$filepath" "$backup"
-        log_success "Yedek alındı: $backup"
+        log_success "Backup created: $backup"
     else
-        log_warning "Zaten yedek var: $backup"
+        log_warning "Backup already exists: $backup"
     fi
 }
 
-# Veritabanını temizle
+# Clean database
 clean_sqlite_db() {
     local db="$1"
     backup_file "$db"
@@ -53,36 +66,35 @@ clean_sqlite_db() {
             fi
         done <<< "$columns"
     done
-    log_success "Temizlendi: $db"
+    log_success "Cleaned: $db"
 }
 
-# Ana fonksiyon
+# Main function
 main() {
-    log_info "VS Code veritabanı temizleme başlatılıyor..."
+    log_info "Starting VS Code database cleaning..."
     check_sqlite3
 
     db_count=0
     locations=($(get_vscode_locations))
 
     if [[ ${#locations[@]} -eq 0 ]]; then
-        log_warning "Hiçbir VS Code veri dizini bulunamadı"
+        log_warning "No VS Code data directories found"
         exit 0
     fi
 
     for dir in "${locations[@]}"; do
         while IFS= read -r db; do
-            log_info "Veritabanı bulundu: $db"
+            log_info "Database found: $db"
             clean_sqlite_db "$db"
             ((db_count++))
         done < <(find "$dir" -type f \( -iname "*.db" -o -iname "*.vscdb" \))
     done
 
     if [[ $db_count -eq 0 ]]; then
-        log_warning "Veritabanı dosyası bulunamadı"
+        log_warning "No database files found"
     else
-        log_success "$db_count veritabanı temizlendi"
+        log_success "$db_count databases cleaned"
     fi
 }
 
 main
-

@@ -1,32 +1,55 @@
 #!/bin/bash
 
-# Renkli loglama
+# Colored logging
 log_info() { echo -e "\033[1;34m[INFO]\033[0m $1"; }
 log_success() { echo -e "\033[1;32m[SUCCESS]\033[0m $1"; }
 log_warning() { echo -e "\033[1;33m[WARNING]\033[0m $1"; }
 log_error() { echo -e "\033[1;31m[ERROR]\033[0m $1"; }
 
-# UUID ve rastgele hex üret
-random_uuid() { cat /proc/sys/kernel/random/uuid; }
-random_hex() { head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n'; }
+# Generate UUID and random hex
+generate_uuid() { cat /proc/sys/kernel/random/uuid; }
+generate_hex() { head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n'; }
 
-# storage.json dosyasını bul
-get_storage_path() {
-    local base="$HOME/.config/Code/User"
-    [[ -f "$base/storage.json" ]] && echo "$base/storage.json" && return
-    [[ -f "$base/globalStorage/storage.json" ]] && echo "$base/globalStorage/storage.json" && return
+# Locate storage.json path (local and Flatpak)
+find_storage_path() {
+    local paths=(
+        "$HOME/.config/Code/User/storage.json"
+        "$HOME/.config/Code/User/globalStorage/storage.json"
+        "$HOME/.var/app/com.visualstudio.code/config/Code/User/storage.json"
+        "$HOME/.var/app/com.visualstudio.code/config/Code/User/globalStorage/storage.json"
+    )
+
+    for path in "${paths[@]}"; do
+        [[ -f "$path" ]] && echo "$path" && return
+    done
+
     echo ""
 }
 
-# JSON dosyasını güncelle
-modify_ids() {
+# Backup file
+backup_file() {
+    local filepath="$1"
+    local backup="${filepath}.backup"
+    if [[ ! -f "$backup" ]]; then
+        cp "$filepath" "$backup"
+        log_success "Backup created: $backup"
+    else
+        log_warning "Backup already exists: $backup"
+    fi
+}
+
+# Modify telemetry IDs
+modify_telemetry_ids() {
     local file="$1"
     backup_file "$file"
 
-    new_machine_id=$(random_hex)
-    new_dev_id=$(random_uuid)
+    local new_machine_id
+    new_machine_id=$(generate_hex)
 
-    # jq ile değiştiriyoruz
+    local new_dev_id
+    new_dev_id=$(generate_uuid)
+
+    local tmp_file
     tmp_file=$(mktemp)
 
     jq --arg mid "$new_machine_id" --arg did "$new_dev_id" '
@@ -34,40 +57,28 @@ modify_ids() {
         (.. | objects | select(has("devDeviceId"))).devDeviceId = $did
     ' "$file" > "$tmp_file" && mv "$tmp_file" "$file"
 
-    log_success "Telemetry ID'leri güncellendi: $file"
-    log_info "Yeni machineId: $new_machine_id"
-    log_info "Yeni devDeviceId: $new_dev_id"
+    log_success "Telemetry IDs updated: $file"
+    log_info "New machineId: $new_machine_id"
+    log_info "New devDeviceId: $new_dev_id"
 }
 
-# Yedekleme fonksiyonu
-backup_file() {
-    local filepath="$1"
-    local backup="$filepath.backup"
-    if [[ ! -f "$backup" ]]; then
-        cp "$filepath" "$backup"
-        log_success "Yedek alındı: $backup"
-    else
-        log_warning "Zaten yedek var: $backup"
-    fi
-}
-
-# Ana
+# Main
 main() {
-    log_info "Telemetry ID değiştirme başlatılıyor..."
+    log_info "Starting telemetry ID reset..."
 
-    path=$(get_storage_path)
+    local path
+    path=$(find_storage_path)
     if [[ -z "$path" ]]; then
-        log_warning "storage.json bulunamadı"
+        log_warning "storage.json not found"
         exit 0
     fi
 
     if ! command -v jq &> /dev/null; then
-        log_error "'jq' yüklü değil. sudo apt install jq ile kurabilirsin"
+        log_error "'jq' is not installed. You can install it using: sudo apt install jq"
         exit 1
     fi
 
-    modify_ids "$path"
+    modify_telemetry_ids "$path"
 }
 
 main
-
