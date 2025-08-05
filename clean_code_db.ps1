@@ -63,12 +63,18 @@ function Backup-File {
         [string]$filePath
     )
     $backupPath = "$filePath.backup"
-    if (-not (Test-Path $backupPath)) {
-        Copy-Item -Path $filePath -Destination $backupPath
-        Log-Success "Created backup: $backupPath"
-    } else {
-        Log-Warning "Backup already exists: $backupPath"
+    if (Test-Path $backupPath) {
+        # Find the next available backup name
+        $i = 1
+        while (Test-Path "$backupPath.$i") {
+            $i++
+        }
+        $newBackupPath = "$backupPath.$i"
+        Move-Item -Path $backupPath -Destination $newBackupPath
+        Log-Warning "Existing backup moved to: $newBackupPath"
     }
+    Copy-Item -Path $filePath -Destination $backupPath -Force
+    Log-Success "Created backup: $backupPath"
 }
 
 # Clean SQLite database
